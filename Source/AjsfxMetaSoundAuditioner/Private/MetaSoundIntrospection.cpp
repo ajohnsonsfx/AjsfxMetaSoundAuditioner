@@ -23,6 +23,35 @@ namespace AjsfxAuditioner
 			D.Name = In.Name;
 			D.TypeNameRaw = In.TypeName.ToString();
 			D.Type = AjsfxAuditionerPrivate::ClassifyTypeName(D.TypeNameRaw, D.bIsArray);
+
+			const TArray<FMetasoundFrontendClassInputDefault>& Defs = In.GetDefaults();
+			if (Defs.Num() > 0)
+			{
+				const FMetasoundFrontendLiteral& Lit = Defs[0].Literal;
+				switch (D.Type)
+				{
+				case EAuditionInputType::Float:
+				{
+					float V = 0.f;
+					if (Lit.TryGet(V)) { D.DefaultFloat = V; }
+					break;
+				}
+				case EAuditionInputType::Int32:
+				{
+					int32 V = 0;
+					if (Lit.TryGet(V)) { D.DefaultInt = V; }
+					break;
+				}
+				case EAuditionInputType::Bool:
+				{
+					bool V = false;
+					if (Lit.TryGet(V)) { D.DefaultBool = V; }
+					break;
+				}
+				default: break;
+				}
+			}
+
 			Out.Add(MoveTemp(D));
 		}
 

@@ -24,6 +24,9 @@ void FAuditionSession::SetSource(UMetaSoundSource* InSource)
 		Stop();
 		Source.Reset(InSource);
 		Pickers.Reset();
+		FloatValues.Reset();
+		IntValues.Reset();
+		BoolValues.Reset();
 	}
 }
 
@@ -67,16 +70,19 @@ void FAuditionSession::ApplyAllPickers()
 
 void FAuditionSession::SetFloatParam(FName Name, float Value)
 {
+	FloatValues.Add(Name, Value);
 	if (UAudioComponent* AC = AudioComponent.Get()) { AC->SetFloatParameter(Name, Value); }
 }
 
 void FAuditionSession::SetIntParam(FName Name, int32 Value)
 {
+	IntValues.Add(Name, Value);
 	if (UAudioComponent* AC = AudioComponent.Get()) { AC->SetIntParameter(Name, Value); }
 }
 
 void FAuditionSession::SetBoolParam(FName Name, bool Value)
 {
+	BoolValues.Add(Name, Value);
 	if (UAudioComponent* AC = AudioComponent.Get()) { AC->SetBoolParameter(Name, Value); }
 }
 

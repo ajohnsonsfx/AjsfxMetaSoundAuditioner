@@ -5,9 +5,11 @@
 #include "AuditionInputDescriptor.h"
 #include "AuditionSession.h"
 
+class FDragDropOperation;
 class SScrollBox;
 class SVerticalBox;
 class UMetaSoundSource;
+class USoundWave;
 
 class SMetaSoundAuditionerPanel : public SCompoundWidget
 {
@@ -27,6 +29,12 @@ private:
 
 	FReply OnPlayClicked();
 	FReply OnStopClicked();
+
+	/** Apply symmetric drop semantics for a list of wave assets dropped on a wave-asset input slot. */
+	void HandleWaveAssetsDropped(FName InputName, EAuditionInputType InputType, const TArray<USoundWave*>& Dropped);
+
+	/** Extract USoundWave* entries from an asset drag-drop operation. */
+	static TArray<USoundWave*> ExtractWavesFromDrop(const TSharedPtr<FDragDropOperation>& Op);
 
 	TSharedPtr<SScrollBox> InputsScroll;
 	TSharedPtr<SVerticalBox> InputsBox;

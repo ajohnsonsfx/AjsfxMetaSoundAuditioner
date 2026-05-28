@@ -25,6 +25,11 @@ struct FAuditionInputDescriptor
 	bool bIsArray = false;
 	/** Raw MetaSound TypeName as a string, for display and fallback handling. */
 	FString TypeNameRaw;
+
+	/** Declared defaults pulled from the MetaSound's class-input default literal, when available. */
+	TOptional<float> DefaultFloat;
+	TOptional<int32> DefaultInt;
+	TOptional<bool> DefaultBool;
 };
 
 namespace AjsfxAuditionerPrivate

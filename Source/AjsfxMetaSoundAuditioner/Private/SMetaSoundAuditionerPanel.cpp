@@ -5,6 +5,8 @@
 #include "Sound/SoundWave.h"
 
 #include "PropertyCustomizationHelpers.h"
+#include "SDropTarget.h"
+#include "DragAndDrop/AssetDragDropOp.h"
 
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/Layout/SBox.h"
@@ -118,6 +120,15 @@ void SMetaSoundAuditionerPanel::SetSource(UMetaSoundSource* InSource)
 {
 	Session.SetSource(InSource);
 	CachedDescriptors = AjsfxAuditioner::DiscoverInputs(InSource);
+
+	// Seed scalar caches from declared MetaSound defaults so the UI shows the graph's intended values.
+	for (const FAuditionInputDescriptor& Desc : CachedDescriptors)
+	{
+		if (Desc.DefaultFloat.IsSet()) { Session.SeedFloatDefault(Desc.Name, Desc.DefaultFloat.GetValue()); }
+		if (Desc.DefaultInt.IsSet())   { Session.SeedIntDefault(Desc.Name,   Desc.DefaultInt.GetValue());   }
+		if (Desc.DefaultBool.IsSet())  { Session.SeedBoolDefault(Desc.Name,  Desc.DefaultBool.GetValue());  }
+	}
+
 	RefreshInputRows();
 }
 
@@ -169,6 +180,7 @@ TSharedRef<SWidget> SMetaSoundAuditionerPanel::BuildRowForInput(const FAuditionI
 		[
 			SNew(SNumericEntryBox<float>)
 				.AllowSpin(true)
+				.Value_Lambda([this, InputName]() { return Session.GetFloatParam(InputName); })
 				.OnValueCommitted_Lambda([this, InputName](float V, ETextCommit::Type) { Session.SetFloatParam(InputName, V); })
 				.OnValueChanged_Lambda([this, InputName](float V) { Session.SetFloatParam(InputName, V); })
 		];
@@ -180,6 +192,7 @@ TSharedRef<SWidget> SMetaSoundAuditionerPanel::BuildRowForInput(const FAuditionI
 		[
 			SNew(SNumericEntryBox<int32>)
 				.AllowSpin(true)
+				.Value_Lambda([this, InputName]() { return Session.GetIntParam(InputName); })
 				.OnValueCommitted_Lambda([this, InputName](int32 V, ETextCommit::Type) { Session.SetIntParam(InputName, V); })
 				.OnValueChanged_Lambda([this, InputName](int32 V) { Session.SetIntParam(InputName, V); })
 		];
@@ -190,6 +203,11 @@ TSharedRef<SWidget> SMetaSoundAuditionerPanel::BuildRowForInput(const FAuditionI
 		Box->AddSlot().AutoHeight()
 		[
 			SNew(SCheckBox)
+				.IsChecked_Lambda([this, InputName]()
+					{
+						const TOptional<bool> V = Session.GetBoolParam(InputName);
+						return (V.IsSet() && V.GetValue()) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+					})
 				.OnCheckStateChanged_Lambda([this, InputName](ECheckBoxState S)
 					{ Session.SetBoolParam(InputName, S == ECheckBoxState::Checked); })
 		];
@@ -218,6 +236,7 @@ TSharedRef<SWidget> SMetaSoundAuditionerPanel::BuildRowForInput(const FAuditionI
 	case EAuditionInputType::WaveAsset:
 	{
 		FAuditionPoolPicker& Picker = Session.GetOrCreatePicker(InputName);
+		TSharedRef<SVerticalBox> WaveContent = SNew(SVerticalBox);
 
 		// Mode toggle: Single / Randomize Pool
 		TSharedRef<SHorizontalBox> ModeRow = SNew(SHorizontalBox);
@@ -259,11 +278,11 @@ TSharedRef<SWidget> SMetaSoundAuditionerPanel::BuildRowForInput(const FAuditionI
 					})
 				[ SNew(STextBlock).Text(LOCTEXT("ModeRand", "Randomize Pool")) ]
 		];
-		Box->AddSlot().AutoHeight().Padding(0, 0, 0, 4) [ ModeRow ];
+		WaveContent->AddSlot().AutoHeight().Padding(0, 0, 0, 4) [ ModeRow ];
 
 		if (Picker.Mode == FAuditionPoolPicker::EMode::Single)
 		{
-			Box->AddSlot().AutoHeight()
+			WaveContent->AddSlot().AutoHeight()
 			[
 				SNew(SObjectPropertyEntryBox)
 					.AllowedClass(USoundWave::StaticClass())
@@ -325,8 +344,27 @@ TSharedRef<SWidget> SMetaSoundAuditionerPanel::BuildRowForInput(const FAuditionI
 							return FReply::Handled();
 						})
 			];
-			Box->AddSlot().AutoHeight() [ PoolList ];
+			WaveContent->AddSlot().AutoHeight() [ PoolList ];
 		}
+
+		Box->AddSlot().AutoHeight()
+		[
+			SNew(SDropTarget)
+				.OnAllowDrop_Lambda([](TSharedPtr<FDragDropOperation> Op)
+					{ return SMetaSoundAuditionerPanel::ExtractWavesFromDrop(Op).Num() > 0; })
+				.OnIsRecognized_Lambda([](TSharedPtr<FDragDropOperation> Op)
+					{ return SMetaSoundAuditionerPanel::ExtractWavesFromDrop(Op).Num() > 0; })
+				.OnDropped_Lambda([this, InputName](const FGeometry&, const FDragDropEvent& Ev) -> FReply
+					{
+						TArray<USoundWave*> Waves = ExtractWavesFromDrop(Ev.GetOperation());
+						if (Waves.Num() > 0)
+						{
+							HandleWaveAssetsDropped(InputName, EAuditionInputType::WaveAsset, Waves);
+						}
+						return FReply::Handled();
+					})
+				[ WaveContent ]
+		];
 		break;
 	}
 	case EAuditionInputType::WaveAssetArray:
@@ -336,8 +374,10 @@ TSharedRef<SWidget> SMetaSoundAuditionerPanel::BuildRowForInput(const FAuditionI
 		FAuditionPoolPicker& Picker = Session.GetOrCreatePicker(InputName);
 		Picker.Mode = FAuditionPoolPicker::EMode::Randomize;
 
+		TSharedRef<SVerticalBox> ArrayContent = SNew(SVerticalBox);
+
 		// Add a small label clarifying the semantics.
-		Box->AddSlot().AutoHeight().Padding(0, 0, 0, 4)
+		ArrayContent->AddSlot().AutoHeight().Padding(0, 0, 0, 4)
 		[
 			SNew(STextBlock)
 				.Text(LOCTEXT("ArrayHint", "Array is passed to the MetaSound as-is. The graph picks."))
@@ -389,7 +429,26 @@ TSharedRef<SWidget> SMetaSoundAuditionerPanel::BuildRowForInput(const FAuditionI
 						return FReply::Handled();
 					})
 		];
-		Box->AddSlot().AutoHeight() [ List ];
+		ArrayContent->AddSlot().AutoHeight() [ List ];
+
+		Box->AddSlot().AutoHeight()
+		[
+			SNew(SDropTarget)
+				.OnAllowDrop_Lambda([](TSharedPtr<FDragDropOperation> Op)
+					{ return SMetaSoundAuditionerPanel::ExtractWavesFromDrop(Op).Num() > 0; })
+				.OnIsRecognized_Lambda([](TSharedPtr<FDragDropOperation> Op)
+					{ return SMetaSoundAuditionerPanel::ExtractWavesFromDrop(Op).Num() > 0; })
+				.OnDropped_Lambda([this, InputName](const FGeometry&, const FDragDropEvent& Ev) -> FReply
+					{
+						TArray<USoundWave*> Waves = ExtractWavesFromDrop(Ev.GetOperation());
+						if (Waves.Num() > 0)
+						{
+							HandleWaveAssetsDropped(InputName, EAuditionInputType::WaveAssetArray, Waves);
+						}
+						return FReply::Handled();
+					})
+				[ ArrayContent ]
+		];
 		break;
 	}
 	default:
@@ -430,6 +489,61 @@ FReply SMetaSoundAuditionerPanel::OnStopClicked()
 {
 	Session.Stop();
 	return FReply::Handled();
+}
+
+TArray<USoundWave*> SMetaSoundAuditionerPanel::ExtractWavesFromDrop(const TSharedPtr<FDragDropOperation>& Op)
+{
+	TArray<USoundWave*> Out;
+	if (!Op.IsValid() || !Op->IsOfType<FAssetDragDropOp>())
+	{
+		return Out;
+	}
+	const TSharedPtr<FAssetDragDropOp> AssetOp = StaticCastSharedPtr<FAssetDragDropOp>(Op);
+	for (const FAssetData& AD : AssetOp->GetAssets())
+	{
+		if (USoundWave* W = Cast<USoundWave>(AD.GetAsset()))
+		{
+			Out.Add(W);
+		}
+	}
+	return Out;
+}
+
+void SMetaSoundAuditionerPanel::HandleWaveAssetsDropped(FName InputName, EAuditionInputType InputType, const TArray<USoundWave*>& Dropped)
+{
+	if (Dropped.Num() == 0) { return; }
+
+	FAuditionPoolPicker& Picker = Session.GetOrCreatePicker(InputName);
+
+	if (InputType == EAuditionInputType::WaveAssetArray)
+	{
+		// MetaSound input is an array — pass entries straight through; graph handles selection internally.
+		Picker.Mode = FAuditionPoolPicker::EMode::Randomize;
+		Picker.Pool.Append(Dropped);
+	}
+	else // WaveAsset (single MetaSound input)
+	{
+		if (Dropped.Num() == 1)
+		{
+			// Single asset onto single input: respect current mode.
+			if (Picker.Mode == FAuditionPoolPicker::EMode::Single)
+			{
+				Picker.SingleWave = Dropped[0];
+			}
+			else
+			{
+				Picker.Pool.Add(Dropped[0]);
+			}
+		}
+		else
+		{
+			// Multiple assets onto a single input: auto-switch to Randomize Pool for external randomization.
+			Picker.Mode = FAuditionPoolPicker::EMode::Randomize;
+			Picker.Pool = Dropped;
+		}
+	}
+
+	RefreshInputRows();
 }
 
 #undef LOCTEXT_NAMESPACE

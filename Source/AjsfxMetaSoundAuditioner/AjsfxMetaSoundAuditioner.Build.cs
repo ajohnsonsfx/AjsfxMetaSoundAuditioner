@@ -27,6 +27,7 @@ namespace UnrealBuildTool.Rules
 				"WorkspaceMenuStructure",
 				"InputCore",
 				"PropertyEditor",
+				"EditorWidgets",
 				"ContentBrowser",
 				"AssetRegistry",
 				"AudioMixer",

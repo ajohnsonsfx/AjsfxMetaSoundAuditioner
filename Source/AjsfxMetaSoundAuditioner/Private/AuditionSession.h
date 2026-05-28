@@ -80,13 +80,23 @@ public:
 	FAuditionPoolPicker& GetOrCreatePicker(FName InputName);
 	const TMap<FName, FAuditionPoolPicker>& GetPickers() const { return Pickers; }
 
-	/** Parameter setters (passthrough to UAudioComponent param API). */
+	/** Parameter setters (passthrough to UAudioComponent param API; also cache for UI redisplay). */
 	void SetFloatParam(FName Name, float Value);
 	void SetIntParam(FName Name, int32 Value);
 	void SetBoolParam(FName Name, bool Value);
 	void SetObjectParam(FName Name, UObject* Value);
 	void SetObjectArrayParam(FName Name, const TArray<UObject*>& Values);
 	void FireTrigger(FName Name);
+
+	/** Cache accessors used by the UI to seed display values and `Value_Lambda` bindings. */
+	TOptional<float> GetFloatParam(FName Name) const  { const float* V = FloatValues.Find(Name); return V ? TOptional<float>(*V) : TOptional<float>(); }
+	TOptional<int32> GetIntParam(FName Name) const    { const int32* V = IntValues.Find(Name);   return V ? TOptional<int32>(*V) : TOptional<int32>(); }
+	TOptional<bool>  GetBoolParam(FName Name) const   { const bool* V = BoolValues.Find(Name);   return V ? TOptional<bool>(*V)  : TOptional<bool>();  }
+
+	/** Seed cached scalar value without pushing to the audio component (used to apply discovered defaults). */
+	void SeedFloatDefault(FName Name, float Value)  { FloatValues.Add(Name, Value); }
+	void SeedIntDefault(FName Name, int32 Value)    { IntValues.Add(Name, Value); }
+	void SeedBoolDefault(FName Name, bool Value)    { BoolValues.Add(Name, Value); }
 
 	void Play();
 	void Stop();
@@ -101,6 +111,11 @@ private:
 	TStrongObjectPtr<UAudioComponent> AudioComponent;
 
 	TMap<FName, FAuditionPoolPicker> Pickers;
+
+	/** Cached current scalar values, so the UI can rebind via Value_Lambda. */
+	TMap<FName, float> FloatValues;
+	TMap<FName, int32> IntValues;
+	TMap<FName, bool>  BoolValues;
 
 	bool bLoop = false;
 	bool bReRandomizeOnLoop = true;
