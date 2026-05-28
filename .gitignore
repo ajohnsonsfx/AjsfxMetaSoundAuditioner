@@ -1,0 +1,36 @@
+# ---- Unreal Engine plugin/project ignore ----
+# Build artifacts (regenerated on build)
+Binaries/
+Build/
+Intermediate/
+DerivedDataCache/
+Saved/
+
+# IDE / editor scratch
+.vs/
+.vscode/
+.idea/
+*.suo
+*.opensdf
+*.opendb
+*.user
+*.sln
+*.xcodeproj/
+*.xcworkspace/
+
+# Generated VS project files (UE regenerates these)
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+
+# Generated UE code (auto-regenerated)
+**/Source/**/*.generated.h
+**/Intermediate/Build/
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local-only marketplace staging
+/Stage/

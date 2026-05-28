@@ -1,0 +1,36 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "0.1.0",
+	"FriendlyName": "Ajsfx MetaSound Auditioner",
+	"Description": "Editor dock panel for auditioning sounds through a MetaSound. Auto-discovers exposed inputs, supports single wave + random pool playback, looping, and live parameter tweaking.",
+	"Category": "Audio",
+	"CreatedBy": "ajohnsonsfx",
+	"CreatedByURL": "https://github.com/ajohnsonsfx",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"EngineVersion": "5.7.0",
+	"CanContainContent": true,
+	"IsBetaVersion": true,
+	"Installed": false,
+	"EnabledByDefault": true,
+	"Modules": [
+		{
+			"Name": "AjsfxMetaSoundAuditioner",
+			"Type": "Editor",
+			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "AjsfxMetaSoundAuditionerTests",
+			"Type": "DeveloperTool",
+			"LoadingPhase": "Default"
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "Metasound",
+			"Enabled": true
+		}
+	]
+}
